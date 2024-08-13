@@ -942,19 +942,33 @@ void RemoteIO::updatePinInput(String ref)
 {
   int pinRef = setIO[ref]["pin"].as<int>();
   String typeRef = setIO[ref]["Mode"].as<String>();
-  int valueRef;
+  int delayTime = setIO[ref]["delay"].as<int>() * 1000; // variável de configuração sincronizada com a plataforma
+  int timestamp = setIO[ref]["timestamp"].as<int>();  // variável de configuração local, dessincronizada
 
-  if (typeRef == "INPUT" || typeRef == "INPUT_PULLDOWN" || typeRef == "INPUT_PULLUP")
+  // garantir pelo menos 5 seg de delay
+  if (delayTime < 5000) 
   {
-    valueRef = digitalRead(pinRef);
-    if (connection_state == CONNECTED) espPOST(appPostData, ref, String(valueRef));
-    else if (anchored) localHttpUpdateMsg(ref, String(valueRef));
+    delayTime = 5000; // ms
+    setIO[ref]["delay"] = 5; // s
   }
-  else if (typeRef == "INPUT_ANALOG")
+
+  if (millis() - timestamp >= delayTime)
   {
-    float value = analogRead(pinRef);
-    if (connection_state == CONNECTED) espPOST(appPostData, ref, String(value));
-    else if (anchored) localHttpUpdateMsg(ref, String(value));
+    setIO[ref]["timestamp"] = millis();
+    
+    // executa ação de leitura conforme tipo de variável ou processo utilizado
+    if (typeRef == "INPUT" || typeRef == "INPUT_PULLDOWN" || typeRef == "INPUT_PULLUP")
+    {
+      int valueRef = digitalRead(pinRef);
+      if (connection_state == CONNECTED) espPOST(ref, String(valueRef));
+      else if (anchored) localHttpUpdateMsg(ref, String(valueRef));
+    }
+    else if (typeRef == "INPUT_ANALOG")
+    {
+      float valueRef = analogRead(pinRef);
+      if (connection_state == CONNECTED) espPOST(ref, String(valueRef));
+      else if (anchored) localHttpUpdateMsg(ref, String(valueRef));
+    }
   }
 }
 
