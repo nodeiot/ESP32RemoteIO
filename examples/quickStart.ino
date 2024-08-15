@@ -11,7 +11,7 @@
 
 /* Veja a documentação xxx para informações mais detalhadas sobre esse exemplo */
 
-#include <RemoteIO.h>
+#include <ESP32RemoteIO.h>
 
 RemoteIO device1;
 
