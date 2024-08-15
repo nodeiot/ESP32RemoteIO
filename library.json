@@ -1,5 +1,5 @@
 {
-    "name": "RemoteIO",
+    "name": "ESP32RemoteIO",
     "version": "1.0.6",
     "description": "Basic library for communication with cloud based IoT platform NodeIoT, sensors usage and product development. Communicates with NodeIoT to provide real time sensor readings and command actions through web dashboards.",
     "repository": {

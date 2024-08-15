@@ -1,11 +1,11 @@
-# RemoteIO
+# ESP32RemoteIO
 
 Biblioteca para comunicação entre dispositivos [espressif32](https://www.espressif.com/en/products/socs/esp32) e plataforma em nuvem [NodeIoT](https://nodeiot.app.br/).
 
 Possibilita a leitura de sensores e acionamento de atuadores em tempo real, com visualização de dados e ações de comando via dashboards web/mobile.
 
 ## Índice
-- [RemoteIO](#remoteio)
+- [ESP32RemoteIO](#esp32remoteio)
   - [Índice](#índice)
   - [Requisitos](#requisitos)
   - [Instalação](#instalação)
@@ -44,7 +44,7 @@ board = ...
 framework = arduino
 
 # latest stable version
-lib_deps = gkraemer-niot@RemoteIO
+lib_deps = gkraemer-niot@ESP32RemoteIO
 ```
 
 ## Primeiro uso
@@ -60,7 +60,7 @@ Com os passos abaixo você poderá fazer a primeira interação de um hardware [
 - Como sugestão, adicione ao seu dispositivo uma variável para controlar, se disponível, o led embutido (built-in) no PCB do seu hardware. Defina uma referência (Ref) para facilitar a identificação dessa variável no firmware (caso deseje desenvolver outras operações com ela), além de um nome (Variável) para visualização na plataforma. Nas configurações da variável, selecione o modo OUTPUT e informe o pino que controla o led (usualmente o pino 2, verifique documentação da fabricante para mais informações). Salve as configurações do dispositivo.
 - Copie o código do exemplo quickStart.ino abaixo e cole no arquivo principal do projeto em sua IDE. 
 ```ini
-#include <RemoteIO.h>
+#include <ESP32RemoteIO.h>
 
 RemoteIO device1;
 
