@@ -50,9 +50,11 @@ class RemoteIO
   private:
     void notFound(AsyncWebServerRequest *request);
     void localHttpUpdateMsg(String ref, String value);
+    static void IRAM_ATTR interruptCallback(void* arg);
     void tryAuthenticate();    
     void fetchLatestData();
     void browseService(const char * service, const char * proto);
+    void sendDataFromQueue();
     void switchState();
     void stateLogic();
     void socketIOConnect();
@@ -61,6 +63,7 @@ class RemoteIO
     void extractIPAddress(String url);
     void startAccessPoint();
     void checkResetting(long timeInterval);
+    int espPOST(JsonDocument arrayDoc);
     int espPOST(String Router, String variable, String value);
 
     StaticJsonDocument<JSON_DOCUMENT_CAPACITY> configurationDocument;
