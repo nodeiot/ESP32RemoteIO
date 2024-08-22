@@ -1069,7 +1069,6 @@ int RemoteIO::espPOST(String Router, String variable, String value)
     else if (Router == anchored_route) route = "http://" + anchored_IP + "/post-message";
     else route = Router;
 
-
     WiFiClientSecure client;
     HTTPClient https;
     StaticJsonDocument<1024> document;
@@ -1080,10 +1079,17 @@ int RemoteIO::espPOST(String Router, String variable, String value)
     if (Router == appPostData)
     {
       document["deviceId"] = _deviceId;
-      document["ref"] = variable;
-      document["value"] = value;
+      JsonDocument doc; 
+      doc["ref"] = variable;
+      doc["value"] = value;
+      document["dataArray"].add(doc);
       setIO[variable]["value"] = value;
       serializeJson(document, request);
+    }
+    else if (Router == "appPostDataArray")
+    {
+      route = appPostData;
+      request = value;
     }
     else request = value; 
     
