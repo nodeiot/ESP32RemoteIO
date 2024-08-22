@@ -12,6 +12,8 @@
 #ifndef ESP32RemoteIO_h
 #define ESP32RemoteIO_h
 
+#define VERSION "1.0.6"
+
 #define JSON_DOCUMENT_CAPACITY 4096
 
 #define INICIALIZATION 0    
