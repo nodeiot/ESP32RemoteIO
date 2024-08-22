@@ -622,6 +622,10 @@ const char page_monitor[] PROGMEM = R"rawliteral(
                                         <label for="memory"></label>
                                         <span id="memory">-</span><br>
                                     </h2>
+                                    <h2>Versão:
+                                        <label for="version"></label>
+                                        <span id="version">-</span><br>
+                                    </h2>
                                 </form>
                             </div>
                         </div>
@@ -674,6 +678,7 @@ const char page_monitor[] PROGMEM = R"rawliteral(
                         document.getElementById("rssi").textContent = data["Wi-Fi"]["rssi"];
                         document.getElementById("model").textContent = data["RemoteIO"]["model"];
                         document.getElementById("memory").textContent = data["RemoteIO"]["memory"];
+                        document.getElementById("version").textContent = data["RemoteIO"]["version"];
                         document.getElementById("companyName").textContent = data["NodeIoT"]["companyName"];
                         document.getElementById("deviceId").textContent = data["NodeIoT"]["deviceId"];
                         document.getElementById("authentication").textContent = data["NodeIoT"]["authentication"];

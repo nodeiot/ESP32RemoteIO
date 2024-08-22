@@ -98,6 +98,7 @@ void RemoteIO::begin()
       monitor_doc["Wi-Fi"]["rssi"] = WiFi.RSSI();
       monitor_doc["RemoteIO"]["model"] = _model;
       monitor_doc["RemoteIO"]["memory"] = flashSize;
+      monitor_doc["RemoteIO"]["version"] = VERSION;
       monitor_doc["NodeIoT"]["companyName"] = _companyName;
       monitor_doc["NodeIoT"]["deviceId"] = _deviceId;
 
