@@ -48,7 +48,7 @@ board = ...
 framework = arduino
 
 # latest stable version
-lib_deps = gkraemer-niot@ESP32RemoteIO
+lib_deps = gkraemer-niot/ESP32RemoteIO
 ```
 
 ## Primeiro uso
