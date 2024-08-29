@@ -36,6 +36,7 @@
 #include <AsyncTCP.h>
 #include <ESPmDNS.h>
 #include <esp_task_wdt.h>
+#include <time.h>
 
 class RemoteIO 
 {
@@ -50,9 +51,11 @@ class RemoteIO
     JsonObject setIO;
     
   private:
+    static void IRAM_ATTR interruptCallback(void* arg);
+    static void inputTimerCallback(void* arg);
+    static void outputTimerCallback(void* arg);
     void notFound(AsyncWebServerRequest *request);
     void localHttpUpdateMsg(String ref, String value);
-    static void IRAM_ATTR interruptCallback(void* arg);
     void tryAuthenticate();    
     void fetchLatestData();
     void browseService(const char * service, const char * proto);
@@ -65,11 +68,20 @@ class RemoteIO
     void extractIPAddress(String url);
     void startAccessPoint();
     void checkResetting(long timeInterval);
+    void updateEventArray();
+    void getEvents();
+    void setTimer();
     int espPOST(JsonDocument arrayDoc);
     int espPOST(String Router, String variable, String value);
 
+    esp_timer_handle_t timer;
+    esp_timer_create_args_t timer_args;
+
     StaticJsonDocument<JSON_DOCUMENT_CAPACITY> configurationDocument;
     JsonArray configurations;
+    
+    JsonDocument event_doc;
+    JsonArray event_array;
 
     Preferences* deviceConfig;
     
@@ -98,11 +110,18 @@ class RemoteIO
     String appPostData;
     String appPostDataFromAnchored;
 
+    const char* ntp_server1 = "pool.ntp.org";
+    const char* ntp_server2 = "time.nist.gov";
+
     long start_debounce_time;
     long start_browsing_time;
     long start_reconnect_time;
     long start_config_time; 
     long start_reset_time;
+    
+    long gmtOffset_sec;
+    int daylightOffset_sec;
+    struct tm timeinfo;
 
     String state;
     String token;
