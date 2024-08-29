@@ -12,26 +12,6 @@
 #include "ESP32RemoteIO.h";
 #include "index_html.h";
 
-/*
-modelo json
-
-event_array = [
-
-  {
-    "ref": "",
-    "targetHour": "",
-    "targetMinute": "",
-    "targetSecond": "",
-    "timestamp": "",     // para diferenciar 2 eventos associados à mesma ref
-    "active": false //        true / false
-  },
-  {},
-  ...,
-  {}
-
-]
-*/
-
 typedef struct interrupt_data 
 {
   RemoteIO* remoteio_pointer;
@@ -83,7 +63,6 @@ RemoteIO::RemoteIO()
 void RemoteIO::begin()
 {
   Serial.begin(115200);
-  
   deviceConfig->begin("deviceConfig", false);
 
   if (!SPIFFS.begin(true))
@@ -743,26 +722,6 @@ void RemoteIO::nodeIotConnection()
   daylightOffset_sec = 0;
   configTime(gmtOffset_sec, daylightOffset_sec, ntp_server1, ntp_server2);
 
-  // mock
-  JsonDocument event;
-  event["ref"] = "rel1";
-  event["targetHour"] = "11";
-  event["targetMinute"] = "08";
-  event["targetSecond"] = "00";
-  event["timestamp"] = String(millis()); 
-  event["active"] = false;
-  event_array.add(event);
-  //
-  JsonDocument event1;
-  event1["ref"] = "movRead";
-  event1["targetHour"] = "11";
-  event1["targetMinute"] = "08";
-  event1["targetSecond"] = "30";
-  event1["timestamp"] = String(millis()); 
-  event1["active"] = false;
-  event_array.add(event1);
-  //
-
   while (state != "accepted")
   {
     if ((start_debounce_time != 0) && (millis() - start_debounce_time >= 2000))
@@ -835,8 +794,23 @@ void RemoteIO::inputTimerCallback(void* arg)
 {
   interrupt_data* obj = (interrupt_data*)arg;
   String ref = obj->ref_arg;
+  String refType = obj->remoteio_pointer->setIO[ref]["type"].as<String>();
+  int refPin = obj->remoteio_pointer->setIO[ref]["pin"].as<int>();
 
-  obj->remoteio_pointer->updatePinInput(ref);
+  JsonDocument doc;
+  doc["ref"] = ref;
+
+  if (refType == "INPUT" || refType == "INPUT_PULLUP" || refType == "INPUT_PULLDOWN")
+  {
+    doc["value"] = String(digitalRead(refPin));
+  }
+  else if (refType == "INPUT_ANALOG")
+  {
+    doc["value"] == String(analogRead(refPin));
+  }
+  
+  doc["timestamp"] = String(millis());
+  post_data_queue.add(doc);
   timer_expired = true; // para sinalizar ao loop principal
 }
 
@@ -844,20 +818,21 @@ void RemoteIO::outputTimerCallback(void *arg)
 {
   interrupt_data* obj = (interrupt_data*)arg;
   String ref = obj->ref_arg;
+  String newValue;
   int current_value = obj->remoteio_pointer->setIO[ref]["value"].as<int>();
 
-  if (current_value == 1) 
-  {
-    obj->remoteio_pointer->setIO[ref]["value"] = "0";
-    obj->remoteio_pointer->espPOST(ref, "0");
-  }
-  else if (current_value == 0) 
-  {
-    obj->remoteio_pointer->setIO[ref]["value"] = "1";
-    obj->remoteio_pointer->espPOST(ref, "1");
-  }
-
+  if (current_value == 1) newValue = "0";
+  else if (current_value == 0) newValue = "1";
+  
+  obj->remoteio_pointer->setIO[ref]["value"] = newValue;
   obj->remoteio_pointer->updatePinOutput(ref);
+
+  JsonDocument doc;
+  doc["ref"] = ref;
+  doc["value"] = newValue;
+  doc["timestamp"] = String(millis());
+
+  post_data_queue.add(doc);
   timer_expired = true; // para sinalizar ao loop principal
 }
 
@@ -865,11 +840,10 @@ void RemoteIO::updateEventArray()
 {
   if ((timer_expired) && (event_array.size() > 0) && (event_array[0]["active"].as<bool>()))
   {
-    // remove o evento concluído
     event_array.remove(0);
     timer_expired = false;
 
-    // cria um novo evento
+    // set do timer para um novo evento
     setTimer();
 
     // obtém novos eventos da plataforma
@@ -894,8 +868,6 @@ void RemoteIO::setTimer()
     
     if (!event_array[0]["state"].as<bool>()) 
     {
-      // lógica para iniciar timer
-      // Calculate delay in seconds until target time
       int delaySeconds = (event_array[0]["targetHour"].as<int>() * 3600 + event_array[0]["targetMinute"].as<int>() * 60 + event_array[0]["targetSecond"].as<int>()) - 
                           (currentHour * 3600 + currentMinute * 60 + currentSecond);
       
@@ -970,7 +942,7 @@ void RemoteIO::tryAuthenticate()
 
   int statusCode = https.POST(request);
   
-  String response = https.getString(); // obter resposta do servidor
+  String response = https.getString(); 
   document.clear();
   deserializeJson(document, response);
   //Serial.println(response);
@@ -1066,13 +1038,9 @@ void RemoteIO::tryAuthenticate()
     }
 
     //
-    // getTarefas()
+    //getEvents();
     setTimer();
     // 
-  }
-  else
-  {
-    //Serial.printf("[HTTP] POST... failed, code: %i,  error: %s\n", statusCode, https.errorToString(statusCode).c_str());
   }
   document.clear();
   https.end();
@@ -1223,6 +1191,7 @@ int RemoteIO::espPOST(String Router, String variable, String value)
       JsonDocument doc; 
       doc["ref"] = variable;
       doc["value"] = value;
+      doc["timestamp"] = String(millis());
       document["dataArray"].add(doc);
       setIO[variable]["value"] = value;
       serializeJson(document, request);
@@ -1246,7 +1215,6 @@ int RemoteIO::espPOST(String Router, String variable, String value)
     String response = https.getString(); 
     document.clear();
     deserializeJson(document, response);
-    //Serial.println(response);
 
     if (httpCode == HTTP_CODE_OK)
     {
@@ -1265,15 +1233,7 @@ int RemoteIO::espPOST(String Router, String variable, String value)
     }
     else if (httpCode != HTTP_CODE_OK) 
     {
-      //Serial.printf("[HTTP] POST... failed, code: %i,  error: %s\n", httpCode, https.errorToString(httpCode).c_str());
-      
-      //Serial.printf("msg: %s\n", document["msg"].as<String>());
-      
-      if (Router == anchored_route && variable != "restart")
-      {
-        // something
-      }
-      else if (Router == anchor_route)
+      if (Router == anchor_route)
       {
         anchored = false;
       }
