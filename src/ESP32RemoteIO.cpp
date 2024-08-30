@@ -12,6 +12,8 @@
 #include "ESP32RemoteIO.h";
 #include "index_html.h";
 
+void callback(int offset, int totallength);
+
 typedef struct interrupt_data 
 {
   RemoteIO* remoteio_pointer;
@@ -312,6 +314,15 @@ void RemoteIO::begin()
 
   ArduinoOTA.begin();
   server->begin(); 
+
+  ota.SetCallback(callback);
+  int ret = ota.CheckForOTAUpdate(OTA_JSON_URL, VERSION);
+  Serial.printf("(If the update succeeds, the reboot should prevent us ever getting here.)\n");
+}
+
+void callback(int offset, int totallength)
+{
+    Serial.printf("Updating %d of %d (%02d%%)...\n", offset, totallength, 100 * offset / totallength);
 }
 
 void RemoteIO::checkResetting(long timeInterval)

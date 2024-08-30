@@ -12,7 +12,8 @@
 #ifndef ESP32RemoteIO_h
 #define ESP32RemoteIO_h
 
-#define VERSION "1.1.6"
+#define OTA_JSON_URL   "https://nodeiot-firmware.s3.amazonaws.com/bin/esp32/esp32remoteio.json" // this is where you'll post your JSON filter file
+#define VERSION        "1.1.5" // 1.1.6
 
 #define JSON_DOCUMENT_CAPACITY 4096
 
@@ -37,6 +38,7 @@
 #include <ESPmDNS.h>
 #include <esp_task_wdt.h>
 #include <time.h>
+#include <ESP32OTAPull.h>
 
 class RemoteIO 
 {
@@ -73,6 +75,8 @@ class RemoteIO
     void setTimer();
     int espPOST(JsonDocument arrayDoc);
     int espPOST(String Router, String variable, String value);
+
+    ESP32OTAPull ota;
 
     esp_timer_handle_t timer;
     esp_timer_create_args_t timer_args;
