@@ -37,7 +37,9 @@ jobs:
           - name: Install AWS CLI
             shell: cmd
             run: |
-              choco install awscli
+              curl "https://awscli.amazonaws.com/AWSCLIV2.msi" -o "AWSCLIV2.msi"
+              msiexec.exe /i "AWSCLIV2.msi" /quiet
+
             
           - name: Configure AWS CLI
             shell: cmd
