@@ -48,8 +48,9 @@ jobs:
               } else {
               Write-Host "AWS CLI is already installed."
                }
+               
           - name: Configure AWS CLI
-            shell: powershell
+            shell: cmd
             run: |
               aws configure set aws_access_key_id %AWS_ACCESS_KEY_ID%
               aws configure set aws_secret_access_key %AWS_SECRET_ACCESS_KEY%
@@ -60,7 +61,7 @@ jobs:
             
           - name: Upload binary to S3 with specific name
             if: success()
-            shell: powershell
+            shell: cmd
             run: |
               aws s3 cp D:\a\ESP32RemoteIO\ESP32RemoteIO\.pio\build\esp32dev\firmware.bin s3://%AWS_S3_BUCKET%/%PATH%/firmwareESP32.bin --acl public-read
             env:
