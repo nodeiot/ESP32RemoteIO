@@ -10,54 +10,51 @@ jobs:
         runs-on: ubuntu-latest
 
         steps:
-        - name: checkout 
-          uses: actions/checkout@v4
-        
-        - name: Set up Python
-          uses: actions/setup-python@v5
-          with:
-            python-version: "3.x"
-        
-        - name: Set up PlatformIo
-          run: pip install platformio
-
-        # - name: Install dependencies
-        #   run: pio pkg install
-
-        - name: Build binarie
-          id: build_binarie
-          run: pio run
-          working-directory: .
-
-        - name: Find and Save Binary
-          id: find-binary
-          run: |
-            BINARY_FILE=$(find .pio/build/esp32dev -name 'firmware.bin' | head -n 1)
-            echo "Binary file path: $BINARY_FILE"
-            echo "::set-output name=binary_path::$BINARY_FILE"
-        
-        - name: Install AWS CLI
-          run: |
-            sudo apt-get update
-            sudo apt-get install -y awscli
-      
-          # Configure AWS CLI with environment variables
-        - name: Configure AWS CLI
-          run: |
-            aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
-            aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-            aws configure set default.region us-east-1  
-          env:
-            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      
-          # Upload binary to S3 with specific name
-        - name: Upload binary to S3 with specific name
-          if: success()
-          run: |
-            aws s3 cp ${{ steps.find-binary.outputs.binary_path }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ secrets.PATH }}/firmwareESP32.bin --acl public-read
-          env:
-            AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
-            AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-            AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-      
+          - uses: actions/checkout@v4
+          - uses: actions/cache@v4
+            with:
+              path: |
+                ~/.cache/pip
+                ~/.platformio/.cache
+              key: ${{ runner.os }}-pio
+          - uses: actions/setup-python@v5
+            with:
+              python-version: '3.11'
+          - name: Install PlatformIO Core
+            run: pip install --upgrade platformio
+    
+          - name: Build PlatformIO Project
+            run: pio run
+    
+          - name: Find and Save Binary
+            id: find-binary
+            run: |
+              BINARY_FILE=$(find .pio/build/esp32dev -name 'firmware.bin' | head -n 1)
+              echo "Binary file path: $BINARY_FILE"
+              echo "::set-output name=binary_path::$BINARY_FILE"
+            
+          - name: Install AWS CLI
+            run: |
+              sudo apt-get update
+              sudo apt-get install -y awscli
+          
+              # Configure AWS CLI with environment variables
+          - name: Configure AWS CLI
+            run: |
+              aws configure set aws_access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
+              aws configure set aws_secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+              aws configure set default.region us-east-1  
+            env:
+              AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+              AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          
+              # Upload binary to S3 with specific name
+          - name: Upload binary to S3 with specific name
+            if: success()
+            run: |
+              aws s3 cp ${{ steps.find-binary.outputs.binary_path }} s3://${{ secrets.AWS_S3_BUCKET }}/${{ secrets.PATH }}/firmwareESP32.bin --acl public-read
+            env:
+              AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+              AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+              AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          
