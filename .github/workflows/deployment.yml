@@ -26,6 +26,7 @@ jobs:
         - name: Build binarie
           id: build_binarie
           run: |
+            chmod -R 755 .pio/build/
             pio run -t clean
             pio run
 
