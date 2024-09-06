@@ -19,8 +19,7 @@ jobs:
             python-version: "3.x"
 
         - name: Clean repo
-          run: |
-            rm -rf .pio/
+          run: rm -rf .pio/
         
         - name: Set up PlatformIo
           run: pip install platformio
