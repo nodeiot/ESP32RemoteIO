@@ -16,7 +16,7 @@ jobs:
         - name: Set up Python
           uses: actions/setup-python@v5
           with:
-            python-version: "3.10"
+            python-version: "3.x"
         - name: Set up PlatformIo
           run: pip install platformio
 
@@ -26,7 +26,7 @@ jobs:
         - name: Build binarie
           id: build_binarie
           run: |
-            chmod -R 755 .pio/build/
+            chmod 755 -R .pio/build/
             pio run -t clean
             pio run
 
