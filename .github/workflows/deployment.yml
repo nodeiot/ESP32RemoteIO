@@ -26,7 +26,7 @@ jobs:
 
         - name: check dir
           shell: bash
-          run: ls -lha .
+          run: ls -lha
 
         - name: Build binarie
           id: build_binarie
