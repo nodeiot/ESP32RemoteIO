@@ -17,11 +17,18 @@ jobs:
           uses: actions/setup-python@v5
           with:
             python-version: "3.x"
+
+        - name: Clean repo
+          run: |
+            rm -rf .pio/
+        
         - name: Set up PlatformIo
           run: pip install platformio
 
         - name: Install dependencies
-          run: pio pkg install
+          run: |
+            pio pkg install
+            ls -lha .
 
         - name: Build binarie
           id: build_binarie
