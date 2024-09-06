@@ -24,15 +24,9 @@ jobs:
         - name: Install dependencies
           run: pio pkg install
 
-        - name: check dir
-          shell: bash
-          run: ls -lha
-
         - name: Build binarie
           id: build_binarie
-          run: |
-            pio run -t clean
-            pio run
+          run: pio run
           working-directory: .
 
         - name: Find and Save Binary
