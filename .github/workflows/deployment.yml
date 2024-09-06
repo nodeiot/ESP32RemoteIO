@@ -25,7 +25,9 @@ jobs:
 
         - name: Build binarie
           id: build_binarie
-          run: pio run
+          run: |
+            pio run -t clean
+            pio run
 
         - name: Find and Save Binary
           id: find-binary
