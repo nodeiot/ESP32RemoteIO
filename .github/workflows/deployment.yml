@@ -45,9 +45,9 @@ jobs:
           - name: Configure AWS CLI
             shell: powershell
             run: |
-              aws configure set aws_access_key_id %AWS_ACCESS_KEY_ID%
-              aws configure set aws_secret_access_key %AWS_SECRET_ACCESS_KEY%
-              aws configure set default.region us-east-1
+              aws.exe configure set aws_access_key_id %AWS_ACCESS_KEY_ID%
+              aws.exe configure set aws_secret_access_key %AWS_SECRET_ACCESS_KEY%
+              aws.exe configure set default.region us-east-1
             env:
               AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
               AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -56,7 +56,7 @@ jobs:
             if: success()
             shell: powershell
             run: |
-              aws s3 cp D:\a\ESP32RemoteIO\ESP32RemoteIO\.pio\build\esp32dev\firmware.bin s3://%AWS_S3_BUCKET%/%PATH%/firmwareESP32.bin --acl public-read
+              aws.exe s3 cp D:\a\ESP32RemoteIO\ESP32RemoteIO\.pio\build\esp32dev\firmware.bin s3://%AWS_S3_BUCKET%/%PATH%/firmwareESP32.bin --acl public-read
             env:
               PATH: ${{ secrets.PATH }}
               AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
