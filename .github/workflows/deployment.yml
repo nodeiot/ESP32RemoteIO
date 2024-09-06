@@ -24,7 +24,6 @@ jobs:
         - name: Install dependencies
           run: |
             pio pkg install
-            ls -lha .
 
         - name: Build binarie
           id: build_binarie
