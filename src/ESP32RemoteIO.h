@@ -12,7 +12,7 @@
 #ifndef ESP32RemoteIO_h
 #define ESP32RemoteIO_h
 
-#define VERSION "1.1.6"
+#define VERSION "1.2.6"
 #define OTA_JSON_URL "https://nodeiot-firmware.s3.amazonaws.com/bin/esp32/esp32remoteio.json" // this is where you'll post your JSON filter file
 
 #define JSON_DOCUMENT_CAPACITY 4096
