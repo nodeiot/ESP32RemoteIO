@@ -9,8 +9,10 @@
 ######################################################################
 */
 
-#include "ESP32RemoteIO.h";
-#include "index_html.h";
+#include "ESP32RemoteIO.h"
+#include "index_html.h"
+
+void callback(int offset, int totallength);
 
 typedef struct interrupt_data 
 {
@@ -312,6 +314,12 @@ void RemoteIO::begin()
 
   ArduinoOTA.begin();
   server->begin(); 
+  ota.SetCallback(callback);
+}
+
+void callback(int offset, int totallength)
+{
+    Serial.printf("Updating %d of %d (%02d%%)...\n", offset, totallength, 100 * offset / totallength);
 }
 
 void RemoteIO::checkResetting(long timeInterval)
@@ -677,6 +685,10 @@ void RemoteIO::socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_
           deviceConfig->end();
           delay(1000);
           ESP.restart();
+        }
+        else if (ref == "otaUpdate")
+        {
+          int ret = ota.CheckForOTAUpdate(OTA_JSON_URL, "0.0.0");
         }
 
         setIO[ref]["value"] = value;
