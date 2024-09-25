@@ -17,5 +17,5 @@ jobs:
               mkdir -p ~/.ssh
               echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
               chmod 400 ~/.ssh/id_rsa
-              echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config" 
+              echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
               ssh infra@${{ secrets.SERVER_ADDR }} "cd /opt/ESP32RemoteIO && git fetch && git pull origin master"
