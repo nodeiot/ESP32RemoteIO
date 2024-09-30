@@ -154,7 +154,7 @@ void RemoteIO::begin()
     _deviceId = NVS_DEVICEID;
     _model = NVS_MODEL;
 
-    appBaseUrl = "https://api.nodeiot.app.br/api";
+    appBaseUrl = "https://api-dev.orlaguaiba.com.br/api"; //"https://api.nodeiot.app.br/api"; // teste no dev
     appVerifyUrl = appBaseUrl + "/devices/verify";
     appPostData = appBaseUrl + "/broker/data/";
     appSideDoor = appBaseUrl + "/devices/devicedisconnected";
@@ -957,7 +957,7 @@ void RemoteIO::tryAuthenticate()
   String response = https.getString(); 
   document.clear();
   deserializeJson(document, response);
-  //Serial.println(response);
+  Serial.println(response);
 
   if (statusCode == HTTP_CODE_OK)
   {
