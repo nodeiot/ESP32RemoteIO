@@ -1099,10 +1099,21 @@ void RemoteIO::fetchLatestData()
 
 void RemoteIO::extractIPAddress(String url)
 {
-  int startIndex = url.indexOf("//") + 2; // Encontra o início do endereço IP
-  int endIndex = url.indexOf(":", startIndex); // Encontra o fim do endereço IP
+  String new_url;
+  
+  if (appBaseUrl == "https://api-dev.orlaguaiba.com.br/api") 
+  {
+    new_url = "https://54.88.219.77:5000"; // url atual do back (dev)
+  }
+  else 
+  {
+    new_url = url;
+  }
 
-  _appHost = url.substring(startIndex, endIndex); // Extrai o endereço IP
+  int startIndex = new_url.indexOf("//") + 2; // Encontra o início do endereço IP
+  int endIndex = new_url.indexOf(":", startIndex); // Encontra o fim do endereço IP
+
+  _appHost = new_url.substring(startIndex, endIndex); // Extrai o endereço IP
 }
 
 void RemoteIO::localHttpUpdateMsg (String ref, String value)
