@@ -20,6 +20,12 @@ typedef struct interrupt_data
   String ref_arg;
 } interrupt_data;
 
+typedef struct event_data
+{
+  RemoteIO* remoteio_pointer;
+  JsonDocument* actions_arg;
+} event_data;
+
 DynamicJsonDocument post_data_queue(1024);
 unsigned long last_queue_sent_time = 0;
 
@@ -802,6 +808,32 @@ void IRAM_ATTR RemoteIO::interruptCallback(void* arg)
   }
 }
 
+void RemoteIO::timerEventCallback(void *arg)
+{
+  event_data* obj = (event_data*)arg;
+  JsonDocument& actions = *(obj->actions_arg); //desrefenciar, lembrar disso
+  
+  Serial.printf("\n[timerEventCallback]: ");
+  serializeJson(actions,Serial);
+  Serial.println("");
+  for (size_t i = 0; i < actions.size(); i++)
+  {
+    String ref = actions[i]["ref"].as<String>();
+    String refType = obj->remoteio_pointer->setIO[ref]["type"].as<String>();
+
+    obj->remoteio_pointer->setIO[ref]["value"] = actions[i]["value"];
+    obj->remoteio_pointer->updatePinOutput(ref);
+
+    JsonDocument doc;
+    doc["ref"] = ref;
+    doc["value"] = actions[i]["value"];
+    doc["timestamp"] = time(nullptr) - 10800; //unix time seconds, gmt-3
+
+    post_data_queue.add(doc);
+    timer_expired = true; // para sinalizar ao loop principal
+  }
+}
+
 void RemoteIO::inputTimerCallback(void* arg)
 {
   interrupt_data* obj = (interrupt_data*)arg;
@@ -870,52 +902,54 @@ void RemoteIO::getEvents()
 
 void RemoteIO::setTimer()
 {
-  int currentHour, currentMinute, currentSecond;
-
   if (getLocalTime(&timeinfo) && event_array.size() > 0)
   {
-    currentHour = timeinfo.tm_hour;
-    currentMinute = timeinfo.tm_min;
-    currentSecond = timeinfo.tm_sec;
-    
-    if (!event_array[0]["state"].as<bool>()) 
+    serializeJson(event_array[0], Serial);
+
+    if (!event_array[0]["active"].as<bool>()) 
     {
-      int delaySeconds = (event_array[0]["targetHour"].as<int>() * 3600 + event_array[0]["targetMinute"].as<int>() * 60 + event_array[0]["targetSecond"].as<int>()) - 
-                          (currentHour * 3600 + currentMinute * 60 + currentSecond);
-      
-      // Adjust if target time is the next day
-      if (delaySeconds < 0) delaySeconds += 86400;
+      time_t now = time(nullptr); //- 10800; // recebe em GMT+0000, subtrai 3 horas (em segundos)
+      Serial.printf("\nnow: ");
+      Serial.print(now);
+      Serial.println("");
 
-      String ref = event_array[0]["ref"].as<String>();
-      String refType = setIO[ref]["type"].as<String>();
-
-      Serial.print(ref);
-      Serial.printf(" event will trigger in %d seconds\n", delaySeconds);
+      String unix_time_ms = event_array[0]["targetTimestamp"].as<String>();
       
-      interrupt_data* arg = new interrupt_data();
+      Serial.printf("unix_time_ms: %s\n", unix_time_ms);
+      long long unix_time_s = strtoll(unix_time_ms.c_str(), NULL, 10) / 1000;
+
+      Serial.printf("unix_time_s: %lld\n", unix_time_s);
+      int delaySeconds = unix_time_s - now;
+      
+      Serial.printf("Event will trigger in %d seconds\n", delaySeconds);
+      
+      event_data* arg = new event_data();
       arg->remoteio_pointer = this;
-      arg->ref_arg = ref;
+      
+      JsonDocument* actions_pointer = new JsonDocument();
 
-      if (refType == "OUTPUT")
+      for (size_t i = 0; i < event_array[0]["actions"].size(); i++)
       {
-        timer_args.callback = &outputTimerCallback;
-        timer_args.arg = (void*) arg;
-        timer_args.name = "outputTimer";
-
-        esp_timer_create(&timer_args, &timer);
-        esp_timer_start_once(timer, delaySeconds * 1000000);
-        event_array[0]["active"] = true;
+        //Serial.println("");
+        //Serial.println("adicionando actions");
+        //serializeJson(event_array[0]["actions"][i], Serial);
+        //Serial.println("");
+        actions_pointer->add(event_array[0]["actions"][i]);
       }
-      else if (refType == "INPUT" || refType == "INPUT_PULLDOWN" || refType == "INPUT_PULLUP" || refType == "INPUT_ANALOG")
-      {
-        timer_args.callback = &inputTimerCallback;
-        timer_args.arg = (void*) arg;
-        timer_args.name = "inputTimer";
 
-        esp_timer_create(&timer_args, &timer);
-        esp_timer_start_once(timer, delaySeconds * 1000000);
-        event_array[0]["active"] = true;
-      }
+      arg->actions_arg = actions_pointer;
+
+      Serial.print("arg->actions_arg: ");
+      serializeJson(*(arg->actions_arg), Serial);
+      Serial.println("");
+      
+      timer_args.callback = &timerEventCallback;
+      timer_args.arg = (void*) arg;
+      timer_args.name = "timerEvent";
+
+      esp_timer_create(&timer_args, &timer);
+      esp_timer_start_once(timer, delaySeconds * 1000000);
+      event_array[0]["active"] = true;
     }
   }
   else 
@@ -1049,10 +1083,37 @@ void RemoteIO::tryAuthenticate()
       }
     }
 
-    //
-    //getEvents();
+    for (size_t i = 0; i < document["events"].size(); i++)
+    {
+      document["events"][i]["active"] = false; // pedir para alterar esse valor do parâmetro no back
+      event_array.add(document["events"][i]);
+    }
+    // mock
+    JsonDocument doc1;
+    
+    JsonDocument doc2;
+    doc2["ref"] = "rel1";
+    doc2["value"] = "1";
+
+    doc1["actions"].add(doc2);
+    doc2.clear();
+
+    doc2["ref"] = "rel2";
+    doc2["value"] = "1";
+
+    doc1["actions"].add(doc2);
+    doc2.clear();
+
+    doc1["targetTimestamp"] = "1728046800000"; //"1728059400000";
+                            //"1728046380000"
+    doc1["delay"] = "";
+    doc1["active"] = false;
+    
+    event_array.add(doc1);
+    // fim mock
+
+    Serial.println("[tryAuth] chama setTimer");
     setTimer();
-    // 
   }
   document.clear();
   https.end();

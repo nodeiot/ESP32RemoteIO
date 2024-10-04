@@ -54,6 +54,7 @@ class RemoteIO
     
   private:
     static void IRAM_ATTR interruptCallback(void* arg);
+    static void timerEventCallback(void* arg);
     static void inputTimerCallback(void* arg);
     static void outputTimerCallback(void* arg);
     void notFound(AsyncWebServerRequest *request);
