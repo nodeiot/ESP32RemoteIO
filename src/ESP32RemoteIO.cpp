@@ -20,6 +20,12 @@ typedef struct interrupt_data
   String ref_arg;
 } interrupt_data;
 
+typedef struct event_data
+{
+  RemoteIO* remoteio_pointer;
+  JsonDocument* actions_arg;
+} event_data;
+
 DynamicJsonDocument post_data_queue(1024);
 unsigned long last_queue_sent_time = 0;
 
@@ -802,50 +808,27 @@ void IRAM_ATTR RemoteIO::interruptCallback(void* arg)
   }
 }
 
-void RemoteIO::inputTimerCallback(void* arg)
+void RemoteIO::timerEventCallback(void *arg)
 {
-  interrupt_data* obj = (interrupt_data*)arg;
-  String ref = obj->ref_arg;
-  String refType = obj->remoteio_pointer->setIO[ref]["type"].as<String>();
-  int refPin = obj->remoteio_pointer->setIO[ref]["pin"].as<int>();
+  event_data* obj = (event_data*)arg;
+  JsonDocument& actions = *(obj->actions_arg); //desrefenciar, lembrar disso
 
-  JsonDocument doc;
-  doc["ref"] = ref;
-
-  if (refType == "INPUT" || refType == "INPUT_PULLUP" || refType == "INPUT_PULLDOWN")
+  for (size_t i = 0; i < actions.size(); i++)
   {
-    doc["value"] = String(digitalRead(refPin));
+    String ref = actions[i]["ref"].as<String>();
+    String refType = obj->remoteio_pointer->setIO[ref]["type"].as<String>();
+
+    obj->remoteio_pointer->setIO[ref]["value"] = actions[i]["value"];
+    obj->remoteio_pointer->updatePinOutput(ref);
+
+    JsonDocument doc;
+    doc["ref"] = ref;
+    doc["value"] = actions[i]["value"];
+    doc["timestamp"] = time(nullptr) - 10800; //unix time seconds, gmt-3
+    
+    post_data_queue.add(doc);
+    timer_expired = true; // para sinalizar ao loop principal
   }
-  else if (refType == "INPUT_ANALOG")
-  {
-    doc["value"] == String(analogRead(refPin));
-  }
-  
-  doc["timestamp"] = String(millis());
-  post_data_queue.add(doc);
-  timer_expired = true; // para sinalizar ao loop principal
-}
-
-void RemoteIO::outputTimerCallback(void *arg)
-{
-  interrupt_data* obj = (interrupt_data*)arg;
-  String ref = obj->ref_arg;
-  String newValue;
-  int current_value = obj->remoteio_pointer->setIO[ref]["value"].as<int>();
-
-  if (current_value == 1) newValue = "0";
-  else if (current_value == 0) newValue = "1";
-  
-  obj->remoteio_pointer->setIO[ref]["value"] = newValue;
-  obj->remoteio_pointer->updatePinOutput(ref);
-
-  JsonDocument doc;
-  doc["ref"] = ref;
-  doc["value"] = newValue;
-  doc["timestamp"] = String(millis());
-
-  post_data_queue.add(doc);
-  timer_expired = true; // para sinalizar ao loop principal
 }
 
 void RemoteIO::updateEventArray()
@@ -870,52 +853,39 @@ void RemoteIO::getEvents()
 
 void RemoteIO::setTimer()
 {
-  int currentHour, currentMinute, currentSecond;
-
   if (getLocalTime(&timeinfo) && event_array.size() > 0)
   {
-    currentHour = timeinfo.tm_hour;
-    currentMinute = timeinfo.tm_min;
-    currentSecond = timeinfo.tm_sec;
-    
-    if (!event_array[0]["state"].as<bool>()) 
+    serializeJson(event_array[0], Serial);
+
+    if (!event_array[0]["active"].as<bool>()) 
     {
-      int delaySeconds = (event_array[0]["targetHour"].as<int>() * 3600 + event_array[0]["targetMinute"].as<int>() * 60 + event_array[0]["targetSecond"].as<int>()) - 
-                          (currentHour * 3600 + currentMinute * 60 + currentSecond);
-      
-      // Adjust if target time is the next day
-      if (delaySeconds < 0) delaySeconds += 86400;
+      time_t now = time(nullptr); //- 10800; // recebe em GMT+0000, subtrai 3 horas (em segundos)
+      String unix_time_s_string = event_array[0]["targetTimestamp"].as<String>();
 
-      String ref = event_array[0]["ref"].as<String>();
-      String refType = setIO[ref]["type"].as<String>();
-
-      Serial.print(ref);
-      Serial.printf(" event will trigger in %d seconds\n", delaySeconds);
+      long unix_time_s = strtol(unix_time_s_string.c_str(), NULL, 10);
+      int delaySeconds = unix_time_s - now;
       
-      interrupt_data* arg = new interrupt_data();
+      //Serial.printf("Event will trigger in %d seconds\n", delaySeconds);
+      
+      event_data* arg = new event_data();
       arg->remoteio_pointer = this;
-      arg->ref_arg = ref;
+      
+      JsonDocument* actions_pointer = new JsonDocument();
 
-      if (refType == "OUTPUT")
+      for (size_t i = 0; i < event_array[0]["actions"].size(); i++)
       {
-        timer_args.callback = &outputTimerCallback;
-        timer_args.arg = (void*) arg;
-        timer_args.name = "outputTimer";
-
-        esp_timer_create(&timer_args, &timer);
-        esp_timer_start_once(timer, delaySeconds * 1000000);
-        event_array[0]["active"] = true;
+        actions_pointer->add(event_array[0]["actions"][i]);
       }
-      else if (refType == "INPUT" || refType == "INPUT_PULLDOWN" || refType == "INPUT_PULLUP" || refType == "INPUT_ANALOG")
-      {
-        timer_args.callback = &inputTimerCallback;
-        timer_args.arg = (void*) arg;
-        timer_args.name = "inputTimer";
 
-        esp_timer_create(&timer_args, &timer);
-        esp_timer_start_once(timer, delaySeconds * 1000000);
-        event_array[0]["active"] = true;
-      }
+      arg->actions_arg = actions_pointer;
+
+      timer_args.callback = &timerEventCallback;
+      timer_args.arg = (void*) arg;
+      timer_args.name = "timerEvent";
+
+      esp_timer_create(&timer_args, &timer);
+      esp_timer_start_once(timer, delaySeconds * 1000000);
+      event_array[0]["active"] = true;
     }
   }
   else 
@@ -957,7 +927,7 @@ void RemoteIO::tryAuthenticate()
   String response = https.getString(); 
   document.clear();
   deserializeJson(document, response);
-  //Serial.println(response);
+  Serial.println(response);
 
   if (statusCode == HTTP_CODE_OK)
   {
@@ -1049,10 +1019,13 @@ void RemoteIO::tryAuthenticate()
       }
     }
 
-    //
-    //getEvents();
+    for (size_t i = 0; i < document["events"].size(); i++)
+    {
+      document["events"][i]["active"] = false; // pedir para alterar esse valor do parâmetro no back
+      event_array.add(document["events"][i]);
+    }
+    
     setTimer();
-    // 
   }
   document.clear();
   https.end();
@@ -1099,10 +1072,21 @@ void RemoteIO::fetchLatestData()
 
 void RemoteIO::extractIPAddress(String url)
 {
-  int startIndex = url.indexOf("//") + 2; // Encontra o início do endereço IP
-  int endIndex = url.indexOf(":", startIndex); // Encontra o fim do endereço IP
+  String new_url;
+  
+  if (appBaseUrl == "https://api-dev.orlaguaiba.com.br/api") 
+  {
+    new_url = "https://54.88.219.77:5000"; // url atual do back (dev)
+  }
+  else 
+  {
+    new_url = url;
+  }
 
-  _appHost = url.substring(startIndex, endIndex); // Extrai o endereço IP
+  int startIndex = new_url.indexOf("//") + 2; // Encontra o início do endereço IP
+  int endIndex = new_url.indexOf(":", startIndex); // Encontra o fim do endereço IP
+
+  _appHost = new_url.substring(startIndex, endIndex); // Extrai o endereço IP
 }
 
 void RemoteIO::localHttpUpdateMsg (String ref, String value)
