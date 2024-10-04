@@ -812,10 +812,7 @@ void RemoteIO::timerEventCallback(void *arg)
 {
   event_data* obj = (event_data*)arg;
   JsonDocument& actions = *(obj->actions_arg); //desrefenciar, lembrar disso
-  
-  Serial.printf("\n[timerEventCallback]: ");
-  serializeJson(actions,Serial);
-  Serial.println("");
+
   for (size_t i = 0; i < actions.size(); i++)
   {
     String ref = actions[i]["ref"].as<String>();
@@ -828,56 +825,10 @@ void RemoteIO::timerEventCallback(void *arg)
     doc["ref"] = ref;
     doc["value"] = actions[i]["value"];
     doc["timestamp"] = time(nullptr) - 10800; //unix time seconds, gmt-3
-
+    
     post_data_queue.add(doc);
     timer_expired = true; // para sinalizar ao loop principal
   }
-}
-
-void RemoteIO::inputTimerCallback(void* arg)
-{
-  interrupt_data* obj = (interrupt_data*)arg;
-  String ref = obj->ref_arg;
-  String refType = obj->remoteio_pointer->setIO[ref]["type"].as<String>();
-  int refPin = obj->remoteio_pointer->setIO[ref]["pin"].as<int>();
-
-  JsonDocument doc;
-  doc["ref"] = ref;
-
-  if (refType == "INPUT" || refType == "INPUT_PULLUP" || refType == "INPUT_PULLDOWN")
-  {
-    doc["value"] = String(digitalRead(refPin));
-  }
-  else if (refType == "INPUT_ANALOG")
-  {
-    doc["value"] == String(analogRead(refPin));
-  }
-  
-  doc["timestamp"] = String(millis());
-  post_data_queue.add(doc);
-  timer_expired = true; // para sinalizar ao loop principal
-}
-
-void RemoteIO::outputTimerCallback(void *arg)
-{
-  interrupt_data* obj = (interrupt_data*)arg;
-  String ref = obj->ref_arg;
-  String newValue;
-  int current_value = obj->remoteio_pointer->setIO[ref]["value"].as<int>();
-
-  if (current_value == 1) newValue = "0";
-  else if (current_value == 0) newValue = "1";
-  
-  obj->remoteio_pointer->setIO[ref]["value"] = newValue;
-  obj->remoteio_pointer->updatePinOutput(ref);
-
-  JsonDocument doc;
-  doc["ref"] = ref;
-  doc["value"] = newValue;
-  doc["timestamp"] = String(millis());
-
-  post_data_queue.add(doc);
-  timer_expired = true; // para sinalizar ao loop principal
 }
 
 void RemoteIO::updateEventArray()
@@ -909,19 +860,12 @@ void RemoteIO::setTimer()
     if (!event_array[0]["active"].as<bool>()) 
     {
       time_t now = time(nullptr); //- 10800; // recebe em GMT+0000, subtrai 3 horas (em segundos)
-      Serial.printf("\nnow: ");
-      Serial.print(now);
-      Serial.println("");
+      String unix_time_s_string = event_array[0]["targetTimestamp"].as<String>();
 
-      String unix_time_ms = event_array[0]["targetTimestamp"].as<String>();
-      
-      Serial.printf("unix_time_ms: %s\n", unix_time_ms);
-      long long unix_time_s = strtoll(unix_time_ms.c_str(), NULL, 10) / 1000;
-
-      Serial.printf("unix_time_s: %lld\n", unix_time_s);
+      long unix_time_s = strtol(unix_time_s_string.c_str(), NULL, 10);
       int delaySeconds = unix_time_s - now;
       
-      Serial.printf("Event will trigger in %d seconds\n", delaySeconds);
+      //Serial.printf("Event will trigger in %d seconds\n", delaySeconds);
       
       event_data* arg = new event_data();
       arg->remoteio_pointer = this;
@@ -930,19 +874,11 @@ void RemoteIO::setTimer()
 
       for (size_t i = 0; i < event_array[0]["actions"].size(); i++)
       {
-        //Serial.println("");
-        //Serial.println("adicionando actions");
-        //serializeJson(event_array[0]["actions"][i], Serial);
-        //Serial.println("");
         actions_pointer->add(event_array[0]["actions"][i]);
       }
 
       arg->actions_arg = actions_pointer;
 
-      Serial.print("arg->actions_arg: ");
-      serializeJson(*(arg->actions_arg), Serial);
-      Serial.println("");
-      
       timer_args.callback = &timerEventCallback;
       timer_args.arg = (void*) arg;
       timer_args.name = "timerEvent";
@@ -1088,31 +1024,7 @@ void RemoteIO::tryAuthenticate()
       document["events"][i]["active"] = false; // pedir para alterar esse valor do parâmetro no back
       event_array.add(document["events"][i]);
     }
-    // mock
-    JsonDocument doc1;
     
-    JsonDocument doc2;
-    doc2["ref"] = "rel1";
-    doc2["value"] = "1";
-
-    doc1["actions"].add(doc2);
-    doc2.clear();
-
-    doc2["ref"] = "rel2";
-    doc2["value"] = "1";
-
-    doc1["actions"].add(doc2);
-    doc2.clear();
-
-    doc1["targetTimestamp"] = "1728046800000"; //"1728059400000";
-                            //"1728046380000"
-    doc1["delay"] = "";
-    doc1["active"] = false;
-    
-    event_array.add(doc1);
-    // fim mock
-
-    Serial.println("[tryAuth] chama setTimer");
     setTimer();
   }
   document.clear();
