@@ -15,9 +15,23 @@
 
 RemoteIO device1;
 
+void myCallback(String ref, String value)
+{
+/* Example:
+
+  if (ref == "turnOnLight")
+  {
+    device1.updatePinOutput(ref);        // This function will update the IO pin linked to 'turnOnLight' variable on previously done NodeIoT device configuration
+  }
+  
+*/
+
+  Serial.printf("ref: %s, value: %s\n", ref, value);
+}
+
 void setup() 
 {
-  device1.begin();
+  device1.begin(myCallback);
 }
 
 void loop() 

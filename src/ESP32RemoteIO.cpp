@@ -68,8 +68,9 @@ RemoteIO::RemoteIO()
   reconnect_counter = 0;
 }
 
-void RemoteIO::begin()
+void RemoteIO::begin(void (*userCallbackFunction)(String ref, String value))
 {
+  storedCallbackFunction = userCallbackFunction;
   Serial.begin(115200);
   deviceConfig->begin("deviceConfig", false);
 
@@ -168,7 +169,7 @@ void RemoteIO::begin()
     appLastDataUrl = appBaseUrl + "/devices/getdata/" + _companyName + "/" + _deviceId;
 
     timer_expired = false;
-    nodeIotConnection();
+    nodeIotConnection(userCallbackFunction);
 
     String LOCAL_DOMAIN = String("niot-") + String(_deviceId);
     LOCAL_DOMAIN.toLowerCase();
@@ -587,7 +588,7 @@ void RemoteIO::stateLogic()
       {
         start_reconnect_time = millis();
         start_debounce_time = millis();
-        nodeIotConnection(); 
+        nodeIotConnection(storedCallbackFunction); 
       }
       break;
 
@@ -625,7 +626,7 @@ void RemoteIO::stateLogic()
         else reconnect_counter++;
         start_reconnect_time = millis();
         start_debounce_time = millis();
-        nodeIotConnection(); 
+        nodeIotConnection(storedCallbackFunction); 
       }
       break;
   }
@@ -653,20 +654,15 @@ void RemoteIO::socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_
       }
 
       StaticJsonDocument<1024> doc;
-      StaticJsonDocument<250> doc2;
       DeserializationError error = deserializeJson(doc, payload, length);
 
-      if (error)
-      {
-        //Serial.print(F("[IOc]: deserializeJson() failed: "));
-        //Serial.println(error.c_str());
-        return;
-      }
-
+      if (error) return;
+      
       String eventName = doc[0];
 
       if (doc[1].containsKey("ipdest")) // modo âncora
       {
+        StaticJsonDocument<250> doc2;
         doc2["ref"] = doc[1]["ref"];
         doc2["value"] = doc[1]["value"];
         
@@ -709,7 +705,7 @@ void RemoteIO::socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_
   }
 }
 
-void RemoteIO::nodeIotConnection()
+void RemoteIO::nodeIotConnection(void (*userCallbackFunction)(String ref, String value))
 {
   String hostname = String("niot-") + String(_deviceId);
   hostname.toLowerCase();
@@ -754,7 +750,31 @@ void RemoteIO::nodeIotConnection()
   fetchLatestData();
 
   socketIO.begin(_appHost, _appPort, appSocketPath); 
-  socketIO.onEvent(std::bind(&RemoteIO::socketIOEvent, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3));
+  socketIO.onEvent([this, userCallbackFunction](socketIOmessageType_t type, uint8_t* payload, size_t length) 
+  {
+    this->socketIOEvent(type, payload, length);
+
+    if ((userCallbackFunction != nullptr) && (type == sIOtype_EVENT)) 
+    {
+      char *sptr = NULL;
+      int id = strtol((char *)payload, &sptr, 10);
+
+      if (id)
+      {
+        payload = (uint8_t *)sptr;
+      }
+
+      JsonDocument doc;
+      DeserializationError error = deserializeJson(doc, payload, length);
+
+      if (error) return;
+
+      String ref = doc[1]["ref"];
+      String value = doc[1]["value"];
+
+      userCallbackFunction(ref, value);
+    }
+  });
 }
 
 void RemoteIO::socketIOConnect()
@@ -913,6 +933,7 @@ void RemoteIO::tryAuthenticate()
   document["mac"] = WiFi.macAddress();
   document["ipAddress"] = WiFi.localIP().toString();
   document["settingsTimestamp"] = storedTimestamp;
+  document["version"] = VERSION;
   
   if (model == "") document["model"] = "ESP_32";
   else document["model"] = model;
@@ -932,7 +953,7 @@ void RemoteIO::tryAuthenticate()
   if (statusCode == HTTP_CODE_OK)
   {
     state = document["state"].as<String>();
-
+    
     if (state != "accepted") 
     {
       document.clear();
