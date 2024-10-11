@@ -26,7 +26,7 @@ void myCallback(String ref, String value)
   
 */
 
-  Serial.printf("ref: %s, value: %s\n", ref, value);
+  //Serial.printf("ref: %s, value: %s\n", ref, value);
 }
 
 void setup() 

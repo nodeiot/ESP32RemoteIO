@@ -164,6 +164,7 @@ void RemoteIO::begin(void (*userCallbackFunction)(String ref, String value))
     appBaseUrl = "https://api.nodeiot.app.br/api";
     appVerifyUrl = appBaseUrl + "/devices/verify";
     appPostData = appBaseUrl + "/broker/data/";
+    appPostMultiData = appBaseUrl + "/broker/multidata";
     appSideDoor = appBaseUrl + "/devices/devicedisconnected";
     appPostDataFromAnchored = appBaseUrl + "/broker/ahamdata";
     appLastDataUrl = appBaseUrl + "/devices/getdata/" + _companyName + "/" + _deviceId;
@@ -839,12 +840,12 @@ void RemoteIO::timerEventCallback(void *arg)
     String refType = obj->remoteio_pointer->setIO[ref]["type"].as<String>();
 
     obj->remoteio_pointer->setIO[ref]["value"] = actions[i]["value"];
-    obj->remoteio_pointer->updatePinOutput(ref);
+    if(refType == "OUTPUT") obj->remoteio_pointer->updatePinOutput(ref);
 
     JsonDocument doc;
     doc["ref"] = ref;
     doc["value"] = actions[i]["value"];
-    doc["timestamp"] = time(nullptr) - 10800; //unix time seconds, gmt-3
+    doc["timestamp"] = time(nullptr); //unix time seconds, gmt-3
     
     post_data_queue.add(doc);
     timer_expired = true; // para sinalizar ao loop principal
@@ -853,48 +854,68 @@ void RemoteIO::timerEventCallback(void *arg)
 
 void RemoteIO::updateEventArray()
 {
-  if ((timer_expired) && (event_array.size() > 0) && (event_array[0]["active"].as<bool>()))
+  if ((timer_expired) && (event_array.size() > 0))
   {
-    event_array.remove(0);
-    timer_expired = false;
+    for (size_t i = 0; i < event_array.size(); i++)
+    {
+      if (event_array[i]["active"].as<bool>())
+      {
+        if (event_array[i]["repeat"].as<int>() > 0)
+        {
+          JsonDocument obj = event_array[0];
+          String targetTimestamp = obj["targetTimestamp"].as<String>();
+          obj["targetTimestamp"] = ((strtol(targetTimestamp.c_str(), NULL, 10)) + ((obj["delay"].as<int>())/1000));
+          obj["active"] = false;
+          event_array.add(obj);
+          obj.clear();
+        }
 
-    // set do timer para um novo evento
-    setTimer();
-
-    // obtém novos eventos da plataforma
-    // getEvents();
+        event_array.remove(i);
+        timer_expired = false;
+        setTimer();
+        return;
+      }
+    }
   }
-}
-
-void RemoteIO::getEvents()
-{
-  // http get numa rota para pegar um array de eventos
 }
 
 void RemoteIO::setTimer()
 {
   if (getLocalTime(&timeinfo) && event_array.size() > 0)
   {
-    serializeJson(event_array[0], Serial);
+    int next_event_position = 0;
+    String next_event_timestamp_string = event_array[0]["targetTimestamp"].as<String>();
+    long next_event_timestamp = strtol(next_event_timestamp_string.c_str(), NULL, 10);
 
-    if (!event_array[0]["active"].as<bool>()) 
+    for (size_t i = 1; i < event_array.size(); i++)
     {
-      time_t now = time(nullptr); //- 10800; // recebe em GMT+0000, subtrai 3 horas (em segundos)
-      String unix_time_s_string = event_array[0]["targetTimestamp"].as<String>();
+      String temp_event_timestamp_string = event_array[i]["targetTimestamp"].as<String>();
+      long temp_event_timestamp = strtol(next_event_timestamp_string.c_str(), NULL, 10);
+
+      if (temp_event_timestamp < next_event_timestamp) 
+      {
+        next_event_position = i;
+        next_event_timestamp_string = temp_event_timestamp_string;
+        next_event_timestamp = temp_event_timestamp;
+      }
+    }
+
+    if (!event_array[next_event_position]["active"].as<bool>())
+    {
+      time_t now = time(nullptr);
+      String unix_time_s_string = event_array[next_event_position]["targetTimestamp"].as<String>();
 
       long unix_time_s = strtol(unix_time_s_string.c_str(), NULL, 10);
       int delaySeconds = unix_time_s - now;
-      
-      //Serial.printf("Event will trigger in %d seconds\n", delaySeconds);
-      
+
       event_data* arg = new event_data();
       arg->remoteio_pointer = this;
-      
+
       JsonDocument* actions_pointer = new JsonDocument();
 
-      for (size_t i = 0; i < event_array[0]["actions"].size(); i++)
+      for (size_t i = 0; i < event_array[next_event_position]["actions"].size(); i++)
       {
-        actions_pointer->add(event_array[0]["actions"][i]);
+        actions_pointer->add(event_array[next_event_position]["actions"][i]);
       }
 
       arg->actions_arg = actions_pointer;
@@ -905,7 +926,7 @@ void RemoteIO::setTimer()
 
       esp_timer_create(&timer_args, &timer);
       esp_timer_start_once(timer, delaySeconds * 1000000);
-      event_array[0]["active"] = true;
+      event_array[next_event_position]["active"] = true;
     }
   }
   else 
@@ -1042,7 +1063,7 @@ void RemoteIO::tryAuthenticate()
 
     for (size_t i = 0; i < document["events"].size(); i++)
     {
-      document["events"][i]["active"] = false; // pedir para alterar esse valor do parâmetro no back
+      document["events"][i]["active"] = false; 
       event_array.add(document["events"][i]);
     }
     
@@ -1097,7 +1118,7 @@ void RemoteIO::extractIPAddress(String url)
   
   if (appBaseUrl == "https://api-dev.orlaguaiba.com.br/api") 
   {
-    new_url = "https://54.88.219.77:5000"; // url atual do back (dev)
+    new_url = "https://54.88.219.77:5000"; 
   }
   else 
   {
@@ -1177,7 +1198,7 @@ int RemoteIO::espPOST(JsonDocument arrayDoc)
   doc["deviceId"] = _deviceId;
   doc["dataArray"] = arrayDoc;
   serializeJson(doc, value);
-  return espPOST("appPostDataArray", "", value);
+  return espPOST(appPostMultiData, "", value);
 }
 
 int RemoteIO::espPOST(String variable, String value)
@@ -1205,17 +1226,15 @@ int RemoteIO::espPOST(String Router, String variable, String value)
     if (Router == appPostData)
     {
       document["deviceId"] = _deviceId;
-      JsonDocument doc; 
-      doc["ref"] = variable;
-      doc["value"] = value;
-      doc["timestamp"] = String(millis());
-      document["dataArray"].add(doc);
+      document["ref"] = variable;
+      document["value"] = value;
+      document["timestamp"] = time(nullptr);
       setIO[variable]["value"] = value;
       serializeJson(document, request);
     }
-    else if (Router == "appPostDataArray")
+    else if (Router == appPostMultiData)
     {
-      route = appPostData;
+      route = appPostMultiData;
       request = value;
     }
     else request = value; 

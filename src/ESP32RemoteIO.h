@@ -70,7 +70,6 @@ class RemoteIO
     void startAccessPoint();
     void checkResetting(long timeInterval);
     void updateEventArray();
-    void getEvents();
     void setTimer();
     int espPOST(JsonDocument arrayDoc);
     int espPOST(String Router, String variable, String value);
@@ -112,6 +111,7 @@ class RemoteIO
     String appLastDataUrl;
     String appSideDoor;
     String appPostData;
+    String appPostMultiData;
     String appPostDataFromAnchored;
 
     const char* ntp_server1 = "pool.ntp.org";
@@ -146,6 +146,3 @@ class RemoteIO
 };
 
 #endif // ESP32RemoteIO_h
-
-
-
