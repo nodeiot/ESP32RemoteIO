@@ -661,6 +661,13 @@ void RemoteIO::socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_
       
       String eventName = doc[0];
 
+      Serial.printf("\n[socketIOEvent] eventName: %s\n", eventName);
+
+      if (eventName == "infoUpdated")
+      {
+        // tratar refs de funções padrão (reset, disconnect, etc...)
+      }
+
       if (doc[1].containsKey("ipdest")) // modo âncora
       {
         StaticJsonDocument<250> doc2;
