@@ -633,6 +633,36 @@ void RemoteIO::stateLogic()
   }
 }
 
+int RemoteIO::updateFirmwareOTA()
+{
+  int ret = ota.CheckForOTAUpdate(OTA_JSON_URL, "0.0.0");
+  return ret;
+}
+
+void RemoteIO::rebootDevice()
+{
+  ESP.restart();
+}
+
+void RemoteIO::eraseDeviceSettings()
+{
+  deviceConfig->begin("deviceConfig", false);
+  deviceConfig->clear();
+  deviceConfig->end();
+  Serial.printf("\nApagando configurações salvas na memória não volátil...\n");
+  delay(1000);
+  ESP.restart();
+}
+
+void RemoteIO::infoUpdatedEventHandler(JsonDocument payload_doc)
+{
+  String ref = payload_doc[1]["ref"];
+  
+  if (ref == "restart") rebootDevice();
+  else if (ref == "reset") eraseDeviceSettings();
+  else if (ref == "otaUpdate") updateFirmwareOTA();
+}
+
 void RemoteIO::socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_t length)
 {
   switch (type)
@@ -661,6 +691,11 @@ void RemoteIO::socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_
       
       String eventName = doc[0];
 
+      if (eventName == "infoUpdated")
+      {
+        infoUpdatedEventHandler(doc);
+      }
+
       if (doc[1].containsKey("ipdest")) // modo âncora
       {
         StaticJsonDocument<250> doc2;
@@ -680,19 +715,7 @@ void RemoteIO::socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_
         String ref = doc[1]["ref"];
         String value = doc[1]["value"];
 
-        if (ref == "restart") ESP.restart();
-        else if (ref == "reset")
-        {
-          deviceConfig->begin("deviceConfig", false);
-          deviceConfig->clear();
-          deviceConfig->end();
-          delay(1000);
-          ESP.restart();
-        }
-        else if (ref == "otaUpdate")
-        {
-          int ret = ota.CheckForOTAUpdate(OTA_JSON_URL, "0.0.0");
-        }
+        infoUpdatedEventHandler(doc);
 
         setIO[ref]["value"] = value;
 
