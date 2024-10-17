@@ -57,9 +57,12 @@ class RemoteIO
     static void timerEventCallback(void* arg);
     void notFound(AsyncWebServerRequest *request);
     void localHttpUpdateMsg(String ref, String value);
+    void setIOsAndEvents(JsonDocument document);
     void tryAuthenticate();    
     void fetchLatestData();
     void browseService(const char* service, const char* proto);
+    void getPCBModel();
+    void openLocalServer();
     void sendDataFromQueue();
     void switchState();
     void stateLogic();
@@ -95,6 +98,7 @@ class RemoteIO
     SocketIOclient socketIO;
     AsyncWebServer* server;
 
+    bool local_mode;
     bool Connected;
     int Socketed;
     unsigned long messageTimestamp;
