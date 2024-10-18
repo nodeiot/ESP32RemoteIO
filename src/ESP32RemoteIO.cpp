@@ -49,6 +49,7 @@ RemoteIO::RemoteIO()
 
   event_array = event_doc.to<JsonArray>();
 
+  local_mode = false;
   Connected = false;
   Socketed = 0;
   messageTimestamp = 0;
@@ -68,6 +69,69 @@ RemoteIO::RemoteIO()
   reconnect_counter = 0;
 }
 
+void RemoteIO::openLocalServer()
+{
+  server->on("/monitor-data", HTTP_GET, [this](AsyncWebServerRequest *request) {
+
+    JsonDocument monitor_doc;
+    String wifi_state; 
+    uint32_t flashSize = 0;
+    esp_flash_get_size(NULL, &flashSize);
+    flashSize = flashSize / 1024;
+
+    if (WiFi.status() == WL_CONNECTED) wifi_state = "Conectado";
+    else wifi_state = "Desconectado";
+
+    if (state == "accepted") monitor_doc["NodeIoT"]["authentication"] = "Verificado";
+    else monitor_doc["NodeIoT"]["authentication"] = "Não verificado";
+
+    if (Connected) monitor_doc["NodeIoT"]["connection"] = "Conectado";
+    else monitor_doc["NodeIoT"]["connection"] = "Desconectado";
+
+    char timeString[64];
+    if (!getLocalTime(&timeinfo))
+    {
+      sprintf(timeString, "Desconectado");
+    }
+    else
+    {
+      strftime(timeString, sizeof(timeString), "%A, %B %d %Y %H:%M:%S", &timeinfo);
+    }
+    
+    monitor_doc["Wi-Fi"]["ssid"] = _ssid;
+    monitor_doc["Wi-Fi"]["ipLocal"] = WiFi.localIP().toString();
+    monitor_doc["Wi-Fi"]["state"] = wifi_state;
+    monitor_doc["Wi-Fi"]["rssi"] = WiFi.RSSI();
+    monitor_doc["RemoteIO"]["model"] = _model;
+    monitor_doc["RemoteIO"]["memory"] = flashSize;
+    monitor_doc["RemoteIO"]["version"] = VERSION;
+    monitor_doc["RemoteIO"]["localTime"] = String(timeString);
+    monitor_doc["NodeIoT"]["companyName"] = _companyName;
+    monitor_doc["NodeIoT"]["deviceId"] = _deviceId;
+
+    String monitor_info;
+    serializeJson(monitor_doc, monitor_info);
+    monitor_doc.clear();
+    
+    request->send(200, "application/json", monitor_info);
+  });
+
+  server->on("/monitor", HTTP_GET, [this](AsyncWebServerRequest *request) {
+      
+    request->send_P(200, "text/html", page_monitor);
+  });
+
+  server->on("/monitor-reset", HTTP_GET, [this](AsyncWebServerRequest *request) {
+      
+    deviceConfig->begin("deviceConfig", false);
+    deviceConfig->clear();
+    deviceConfig->end();
+    request->send(200, "text/plain", "Reset de credenciais efetuado com sucesso! Reiniciando dispositivo...");
+    delay(1000);
+    ESP.restart();
+  });
+}
+
 void RemoteIO::begin(void (*userCallbackFunction)(String ref, String value))
 {
   storedCallbackFunction = userCallbackFunction;
@@ -76,7 +140,7 @@ void RemoteIO::begin(void (*userCallbackFunction)(String ref, String value))
 
   if (!SPIFFS.begin(true))
   {
-    //Serial.println("An Error has occurred while mounting SPIFFS");
+    Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
 
@@ -86,66 +150,6 @@ void RemoteIO::begin(void (*userCallbackFunction)(String ref, String value))
   String NVS_DEVICEID = deviceConfig->getString("deviceId", "");
   String NVS_MODEL = deviceConfig->getString("model", "");
   String NVS_IOSETTINGS = deviceConfig->getString("ioSettings", "");
-
-  server->on("/monitor-data", HTTP_GET, [this](AsyncWebServerRequest *request) {
-      
-      StaticJsonDocument<1024> monitor_doc;
-      String wifi_state; 
-      uint32_t flashSize = 0;
-      esp_flash_get_size(NULL, &flashSize);
-      flashSize = flashSize / 1024;
-
-      if (WiFi.status() == WL_CONNECTED) wifi_state = "Conectado";
-      else wifi_state = "Desconectado";
-
-      if (state == "accepted") monitor_doc["NodeIoT"]["authentication"] = "Verificado";
-      else monitor_doc["NodeIoT"]["authentication"] = "Não verificado";
-
-      if (Connected) monitor_doc["NodeIoT"]["connection"] = "Conectado";
-      else monitor_doc["NodeIoT"]["connection"] = "Desconectado";
-
-      char timeString[64];
-      if (!getLocalTime(&timeinfo))
-      {
-        sprintf(timeString, "Desconectado");
-      }
-      else
-      {
-        strftime(timeString, sizeof(timeString), "%A, %B %d %Y %H:%M:%S", &timeinfo);
-      }
-      
-      monitor_doc["Wi-Fi"]["ssid"] = _ssid;
-      monitor_doc["Wi-Fi"]["ipLocal"] = WiFi.localIP().toString();
-      monitor_doc["Wi-Fi"]["state"] = wifi_state;
-      monitor_doc["Wi-Fi"]["rssi"] = WiFi.RSSI();
-      monitor_doc["RemoteIO"]["model"] = _model;
-      monitor_doc["RemoteIO"]["memory"] = flashSize;
-      monitor_doc["RemoteIO"]["version"] = VERSION;
-      monitor_doc["RemoteIO"]["localTime"] = String(timeString);
-      monitor_doc["NodeIoT"]["companyName"] = _companyName;
-      monitor_doc["NodeIoT"]["deviceId"] = _deviceId;
-
-      String monitor_info;
-      serializeJson(monitor_doc, monitor_info);
-      monitor_doc.clear();
-      
-      request->send(200, "application/json", monitor_info);
-  });
-
-  server->on("/monitor", HTTP_GET, [this](AsyncWebServerRequest *request) {
-      
-      request->send_P(200, "text/html", page_monitor);
-  });
-
-  server->on("/monitor-reset", HTTP_GET, [this](AsyncWebServerRequest *request) {
-      
-      deviceConfig->begin("deviceConfig", false);
-      deviceConfig->clear();
-      deviceConfig->end();
-      request->send(200, "text/plain", "Reset de credenciais efetuado com sucesso! Reiniciando dispositivo...");
-      delay(1000);
-      ESP.restart();
-  });
 
   if (NVS_SSID.length() == 0 || NVS_PASSWORD.length() == 0 || NVS_COMPANYNAME.length() == 0 || NVS_DEVICEID.length() == 0)
   {
@@ -312,6 +316,7 @@ void RemoteIO::begin(void (*userCallbackFunction)(String ref, String value))
     server->addHandler(handler);
   }
 
+  openLocalServer();
   MDNS.addService("http", "tcp", 80);
 
   DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
@@ -347,38 +352,40 @@ void RemoteIO::checkResetting(long timeInterval)
   else start_reset_time = 0;
 }
 
+void RemoteIO::getPCBModel()
+{
+  File file = SPIFFS.open("/model.json", "r");
+  
+  if (!file)
+  {
+    Serial.println("Failed to open file for reading");
+  }
+
+  JsonDocument document;
+  deserializeJson(document, file);
+  file.close();
+  if (document["model"].as<String>() == "") deviceConfig->putString("model", "ESP_32");
+  else deviceConfig->putString("model", document["model"].as<String>());
+}
+
 void RemoteIO::startAccessPoint()
 {
   WiFi.disconnect(true);
   WiFi.mode(WIFI_AP_STA);
-
-  File file = SPIFFS.open("/model.json", "r");
-  if (!file)
-  {
-    Serial.println("Failed to open file for reading");
-    ESP.restart();
-  }
-
-  StaticJsonDocument<100> modelDoc;
-  deserializeJson(modelDoc, file);
-  file.close();
-  deviceConfig->putString("model", modelDoc["model"].as<String>());
 
   IPAddress apIP(192, 168, 4, 1);
 
   bool result = WiFi.softAP("RemoteIO");
   if (!result) 
   {
-    //Serial.println("Erro ao configurar o ponto de acesso");
+    Serial.println("Erro ao configurar o ponto de acesso");
     ESP.restart();
   }
   
   WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
-  
-  //Serial.println("Ponto de acesso iniciado");
 
   IPAddress IP = WiFi.softAPIP();
-  //Serial.print("IP do ponto de acesso: ");
+  Serial.print("IP do ponto de acesso: ");
   Serial.println(IP);
 
   String LOCAL_DOMAIN = String("remoteiodevice");
@@ -501,6 +508,11 @@ void RemoteIO::switchState()
       {
         Serial.println("[INICIALIZATION] vai pro CONNECTED");
         next_state = CONNECTED;
+      }
+      else if (local_mode) 
+      {
+        Serial.println("[INICIALIZATION] vai pro DISCONNECTED");
+        next_state = DISCONNECTED;
       }
       else
       {
@@ -771,38 +783,47 @@ void RemoteIO::nodeIotConnection(void (*userCallbackFunction)(String ref, String
       return;
     }
     tryAuthenticate();
+    
+    if (local_mode) 
+    {
+      //Serial.println("[nodeIotConnection] local_mode true, interrompendo tentativas de autenticacao!");
+      break;
+    }
   }
 
-  String appSocketPath = "/socket.io/?token=" + token + "&EIO=4";
-
-  fetchLatestData();
-
-  socketIO.begin(_appHost, _appPort, appSocketPath); 
-  socketIO.onEvent([this, userCallbackFunction](socketIOmessageType_t type, uint8_t* payload, size_t length) 
+  if (!local_mode)
   {
-    this->socketIOEvent(type, payload, length);
+    String appSocketPath = "/socket.io/?token=" + token + "&EIO=4";
 
-    if ((userCallbackFunction != nullptr) && (type == sIOtype_EVENT)) 
+    fetchLatestData();
+
+    socketIO.begin(_appHost, _appPort, appSocketPath); 
+    socketIO.onEvent([this, userCallbackFunction](socketIOmessageType_t type, uint8_t* payload, size_t length) 
     {
-      char *sptr = NULL;
-      int id = strtol((char *)payload, &sptr, 10);
+      this->socketIOEvent(type, payload, length);
 
-      if (id)
+      if ((userCallbackFunction != nullptr) && (type == sIOtype_EVENT)) 
       {
-        payload = (uint8_t *)sptr;
+        char *sptr = NULL;
+        int id = strtol((char *)payload, &sptr, 10);
+
+        if (id)
+        {
+          payload = (uint8_t *)sptr;
+        }
+
+        JsonDocument doc;
+        DeserializationError error = deserializeJson(doc, payload, length);
+
+        if (error) return;
+
+        String ref = doc[1]["ref"];
+        String value = doc[1]["value"];
+
+        userCallbackFunction(ref, value);
       }
-
-      JsonDocument doc;
-      DeserializationError error = deserializeJson(doc, payload, length);
-
-      if (error) return;
-
-      String ref = doc[1]["ref"];
-      String value = doc[1]["value"];
-
-      userCallbackFunction(ref, value);
-    }
-  });
+    });
+  }
 }
 
 void RemoteIO::socketIOConnect()
@@ -935,6 +956,8 @@ void RemoteIO::setTimer()
       long unix_time_s = strtol(unix_time_s_string.c_str(), NULL, 10);
       int delaySeconds = unix_time_s - now;
 
+      Serial.printf("\n[setTimer] Event will trigger in %d\n", delaySeconds);
+
       event_data* arg = new event_data();
       arg->remoteio_pointer = this;
 
@@ -956,10 +979,93 @@ void RemoteIO::setTimer()
       event_array[next_event_position]["active"] = true;
     }
   }
+  else if (event_array.size() > 0)
+  {
+    Serial.println("[setTimer] tenho eventos, mas não consegui sincronizar o horário");
+  }
   else 
   {
-    //Serial.println("failed getLocalTime");
+    Serial.println("[setTimer] sem eventos");
   }
+}
+
+void RemoteIO::setIOsAndEvents(JsonDocument document)
+{
+  token = document["token"].as<String>();
+  extractIPAddress(document["serverAddr"].as<String>());
+
+  for (size_t i = 0; i < document["gpio"].size(); i++)
+  {
+    String ref = document["gpio"][i]["ref"];
+    int pin = document["gpio"][i]["pin"].as<int>();
+    String type = document["gpio"][i]["type"];
+    String mode = document["gpio"][i]["mode"]; // modo de operação. Ex. p/ INPUTs: interrupção, cíclica, em horário definido...
+
+    if (type == "INPUT" || type == "INPUT_ANALOG")
+    {
+      setIO[ref]["pin"] = pin;
+      setIO[ref]["type"] = type;
+      setIO[ref]["mode"] = mode;
+      pinMode(pin, INPUT);
+
+      if (mode == "interrupt")
+      {
+        interrupt_data* arg = new interrupt_data();
+        arg->remoteio_pointer = this;
+        arg->ref_arg = document["gpio"][i]["ref"].as<String>();
+        attachInterruptArg(digitalPinToInterrupt(pin), interruptCallback, (void*)arg, CHANGE);
+      }
+    }
+    else if (type == "INPUT_PULLUP")
+    {
+      setIO[ref]["pin"] = pin;
+      setIO[ref]["type"] = type;
+      setIO[ref]["mode"] = mode;
+      pinMode(pin, INPUT_PULLUP);
+
+      if (mode == "interrupt")
+      {
+        interrupt_data* arg = new interrupt_data();
+        arg->remoteio_pointer = this;
+        arg->ref_arg = document["gpio"][i]["ref"].as<String>();
+        attachInterruptArg(digitalPinToInterrupt(pin), interruptCallback, (void*)arg, CHANGE);
+      }
+    }
+    else if (type == "INPUT_PULLDOWN")
+    {
+      setIO[ref]["pin"] = pin;
+      setIO[ref]["type"] = type;
+      setIO[ref]["mode"] = mode;
+      pinMode(pin, INPUT_PULLDOWN);
+
+      if (mode == "interrupt")
+      {
+        interrupt_data* arg = new interrupt_data();
+        arg->remoteio_pointer = this;
+        arg->ref_arg = document["gpio"][i]["ref"].as<String>();
+        attachInterruptArg(digitalPinToInterrupt(pin), interruptCallback, (void*)arg, CHANGE);
+      }
+    }
+    else if (type == "OUTPUT")
+    {
+      setIO[ref]["pin"] = pin;
+      setIO[ref]["type"] = type;
+      pinMode(pin, OUTPUT);
+    } 
+    else 
+    {
+      setIO[ref]["pin"] = pin;
+      setIO[ref]["type"] = "N/L";
+    }
+  }
+
+  for (size_t i = 0; i < document["events"].size(); i++)
+  {
+    document["events"][i]["active"] = false; 
+    event_array.add(document["events"][i]);
+  }
+  
+  setTimer();
 }
 
 void RemoteIO::tryAuthenticate()
@@ -971,20 +1077,16 @@ void RemoteIO::tryAuthenticate()
   
   StaticJsonDocument<JSON_DOCUMENT_CAPACITY> document;
   String request;
-
+  
   deviceConfig->begin("deviceConfig", false);
-  String storedTimestamp = deviceConfig->getString("Timestamp", "");
-  String model = deviceConfig->getString("model", "");
-
+  getPCBModel();
+  
   document["companyName"] = _companyName;
   document["deviceId"] = _deviceId;
   document["mac"] = WiFi.macAddress();
   document["ipAddress"] = WiFi.localIP().toString();
-  document["settingsTimestamp"] = storedTimestamp;
   document["version"] = VERSION;
-  
-  if (model == "") document["model"] = "ESP_32";
-  else document["model"] = model;
+  document["model"] = deviceConfig->getString("model", "ESP_32");
   
   serializeJson(document, request);
 
@@ -996,11 +1098,12 @@ void RemoteIO::tryAuthenticate()
   String response = https.getString(); 
   document.clear();
   deserializeJson(document, response);
-  Serial.println(response);
+  //Serial.println(response);
 
   if (statusCode == HTTP_CODE_OK)
   {
     state = document["state"].as<String>();
+    local_mode = false;
     
     if (state != "accepted") 
     {
@@ -1009,94 +1112,30 @@ void RemoteIO::tryAuthenticate()
       https.end();
       return;
     }
-    else if (document["settingsTimestamp"].as<String>() != storedTimestamp)
-    {
-      //Serial.println("[tryAuthenticate] timestamps diferentes");
-      String ioSettings;
-      serializeJson(document, ioSettings);
-      deviceConfig->putString("ioSettings", ioSettings);
-      document.clear();
-      deserializeJson(document, ioSettings);
-    }
-
-    deviceConfig->end();
-    token = document["token"].as<String>();
-    extractIPAddress(document["serverAddr"].as<String>());
-
-    for (size_t i = 0; i < document["gpio"].size(); i++)
-    {
-      String ref = document["gpio"][i]["ref"];
-      int pin = document["gpio"][i]["pin"].as<int>();
-      String type = document["gpio"][i]["type"];
-      String mode = document["gpio"][i]["mode"]; // modo de operação. Ex. p/ INPUTs: interrupção, cíclica, em horário definido...
-
-      if (type == "INPUT" || type == "INPUT_ANALOG")
-      {
-        setIO[ref]["pin"] = pin;
-        setIO[ref]["type"] = type;
-        setIO[ref]["mode"] = mode;
-        pinMode(pin, INPUT);
-
-        if (mode == "interrupt")
-        {
-          interrupt_data* arg = new interrupt_data();
-          arg->remoteio_pointer = this;
-          arg->ref_arg = document["gpio"][i]["ref"].as<String>();
-          attachInterruptArg(digitalPinToInterrupt(pin), interruptCallback, (void*)arg, CHANGE);
-        }
-      }
-      else if (type == "INPUT_PULLUP")
-      {
-        setIO[ref]["pin"] = pin;
-        setIO[ref]["type"] = type;
-        setIO[ref]["mode"] = mode;
-        pinMode(pin, INPUT_PULLUP);
-
-        if (mode == "interrupt")
-        {
-          interrupt_data* arg = new interrupt_data();
-          arg->remoteio_pointer = this;
-          arg->ref_arg = document["gpio"][i]["ref"].as<String>();
-          attachInterruptArg(digitalPinToInterrupt(pin), interruptCallback, (void*)arg, CHANGE);
-        }
-      }
-      else if (type == "INPUT_PULLDOWN")
-      {
-        setIO[ref]["pin"] = pin;
-        setIO[ref]["type"] = type;
-        setIO[ref]["mode"] = mode;
-        pinMode(pin, INPUT_PULLDOWN);
-
-        if (mode == "interrupt")
-        {
-          interrupt_data* arg = new interrupt_data();
-          arg->remoteio_pointer = this;
-          arg->ref_arg = document["gpio"][i]["ref"].as<String>();
-          attachInterruptArg(digitalPinToInterrupt(pin), interruptCallback, (void*)arg, CHANGE);
-        }
-      }
-      else if (type == "OUTPUT")
-      {
-        setIO[ref]["pin"] = pin;
-        setIO[ref]["type"] = type;
-        pinMode(pin, OUTPUT);
-      } 
-      else 
-      {
-        setIO[ref]["pin"] = pin;
-        setIO[ref]["type"] = "N/L";
-      }
-    }
-
-    for (size_t i = 0; i < document["events"].size(); i++)
-    {
-      document["events"][i]["active"] = false; 
-      event_array.add(document["events"][i]);
-    }
     
-    setTimer();
+    String deviceSettings;
+    serializeJson(document, deviceSettings);
+    deviceConfig->putString("deviceSettings", deviceSettings);
+    
+    document.clear();
+    deserializeJson(document, deviceSettings);
+    
+    setIOsAndEvents(document);
+  }
+  else
+  {
+    document.clear();
+    String deviceSettings = deviceConfig->getString("deviceSettings", "");
+
+    if (deviceSettings != "")
+    {
+      deserializeJson(document, deviceSettings);
+      setIOsAndEvents(document);
+      local_mode = true;
+    }
   }
   document.clear();
+  deviceConfig->end();
   https.end();
 }
 
