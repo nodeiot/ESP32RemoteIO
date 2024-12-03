@@ -12,9 +12,7 @@
 #ifndef ESP32RemoteIO_h
 #define ESP32RemoteIO_h
 
-#define VERSION "1.3.0"
-#define OTA_BASE_URL "https://nodeiot-firmware.s3.us-east-1.amazonaws.com/bin/esp32/firmware.bin" 
-
+#define VERSION "1.4.0"
 #define JSON_DOCUMENT_CAPACITY 4096
 
 #define INICIALIZATION 0    
@@ -26,7 +24,6 @@
 #include <ArduinoJson.h>
 #include <WebSocketsClient.h>
 #include <SocketIOclient.h>
-#include <ArduinoOTA.h>
 #include <AsyncJson.h>
 #include <ESPAsyncWebServer.h>
 #include <SPIFFS.h>
@@ -35,11 +32,8 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <AsyncTCP.h>
-#include <ESPmDNS.h>
 #include <esp_task_wdt.h>
-#include <time.h>
-#include <WebSerial.h>
-#include "ESP32OTAPull.h"
+#include <ESPmDNS.h>
 
 class RemoteIO 
 {
@@ -54,54 +48,35 @@ class RemoteIO
     JsonObject setIO;
     
   private:
-    static void IRAM_ATTR interruptCallback(void* arg);
-    static void timerEventCallback(void* arg);
     void notFound(AsyncWebServerRequest *request);
-    void localHttpUpdateMsg(String ref, String value);
-    void setIOsAndEvents(JsonDocument document);
+    void setIOs(JsonDocument document);
     void tryWiFiConnection();
     void fetchLatestData();
-    void browseService(const char* service, const char* proto);
     void getPCBModel();
     void openLocalServer();
-    void sendDataFromQueue();
     void switchState();
     void stateLogic();
     void socketIOConnect();
     void nodeIotConnection(void (*userCallbackFunction)(String ref, String value));
     void socketIOEvent(socketIOmessageType_t type, uint8_t *payload, size_t length);
-    void addWifiAccessPoint(String ssid, String password);
     void rebootDevice();
     void eraseDeviceSettings();
     void infoUpdatedEventHandler(JsonDocument payload_doc);
     void extractIPAddress(String url);
     void startAccessPoint();
-    void checkResetting(long timeInterval);
-    void updateEventArray();
-    void setTimer();
     int tryAuthenticate(); 
-    int espPOST(JsonDocument arrayDoc);
     int espPOST(String Router, String variable, String value);
-    int updateFirmwareOTA(String deviceModel, String firmware_version, String build_id);
 
     void (*storedCallbackFunction)(String ref, String value);
-    ESP32OTAPull ota;
-
-    esp_timer_handle_t timer;
-    esp_timer_create_args_t timer_args;
 
     StaticJsonDocument<JSON_DOCUMENT_CAPACITY> configurationDocument;
     JsonArray configurations;
-    
-    JsonDocument event_doc;
-    JsonArray event_array;
 
     Preferences* deviceConfig;
     
     SocketIOclient socketIO;
     AsyncWebServer* server;
 
-    bool local_mode;
     bool Connected;
     int Socketed;
     unsigned long messageTimestamp;
@@ -113,46 +88,22 @@ class RemoteIO
     String _appHost;
     String _model;
     uint16_t _appPort;
-
-    String anchor_route;
-    String anchored_route;
     
     String appBaseUrl;
     String appVerifyUrl;
     String appLastDataUrl;
-    String appSideDoor;
     String appPostData;
-    String appPostMultiData;
-    String appPostDataFromAnchored;
-
-    const char* ntp_server1 = "pool.ntp.org";
-    const char* ntp_server2 = "time.nist.gov";
 
     long start_debounce_time;
-    long start_browsing_time;
     long start_reconnect_time;
-    long start_config_time; 
-    long start_reset_time;
-    
-    long gmtOffset_sec;
-    int daylightOffset_sec;
-    struct tm timeinfo;
 
     String state;
     String token;
 
-    String anchor_IP;
-    String anchored_IP;
     String send_to_niot_buffer;
-    String send_to_anchor_buffer;
-    String send_to_anchored_buffer;
 
     int connection_state;
     int next_state;
-
-    bool anchored;
-    bool anchoring;
-    int lastIP_index;
     int reconnect_counter;
 };
 
