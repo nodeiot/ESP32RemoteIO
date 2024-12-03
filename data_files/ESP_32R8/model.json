@@ -1,0 +1,60 @@
+{
+    "model": "ESP_32R8",
+    "gpio": [
+                {
+                    "ref": "rel1",
+                    "pin": "32",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel2",
+                    "pin": "33",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel3",
+                    "pin": "25",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel4",
+                    "pin": "26",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel5",
+                    "pin": "27",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel6",
+                    "pin": "14",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel7",
+                    "pin": "12",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel8",
+                    "pin": "13",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "disconnect",
+                    "pin": "",
+                    "type": "virtual_v"
+                },
+                {
+                    "ref": "restart",
+                    "pin": "",
+                    "type": "virtual_v"
+                },
+                {
+                    "ref": "reset",
+                    "pin": "",
+                    "type": "virtual_v"
+                }
+    ]
+}

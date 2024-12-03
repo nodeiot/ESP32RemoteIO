@@ -1,0 +1,55 @@
+name: deployment binary to s3
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pip
+            ~/.platformio/.cache
+          key: ${{ runner.os }}-pio
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install PlatformIO Core
+        run: pip install --upgrade platformio
+
+      - name: Build PlatformIO Project
+        run: pio run
+
+      - name: Find and Save Binary
+        id: find-binary
+        shell: cmd
+        run: |
+          FOR /F "delims=" %%F IN ('dir /b /s .pio\build\esp32dev\firmware.bin') DO SET BINARY_FILE=%%F
+          echo Binary file path: %BINARY_FILE%
+          echo ::set-output name=binary_path::%BINARY_FILE%
+
+      - name: Configure AWS CLI
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upload binary to S3 with specific name
+        if: success()
+        shell: cmd
+        run: |
+          aws s3 cp D:\a\ESP32RemoteIO\ESP32RemoteIO\.pio\build\esp32dev\firmware.bin s3://%AWS_S3_BUCKET%/bin/esp32/firmware.bin
+          aws s3 cp D:\a\ESP32RemoteIO\ESP32RemoteIO\.pio\build\esp32dev\bootloader.bin s3://%AWS_S3_BUCKET%/bin/esp32/bootloader.bin
+          aws s3 cp D:\a\ESP32RemoteIO\ESP32RemoteIO\.pio\build\esp32dev\partitions.bin s3://%AWS_S3_BUCKET%/bin/esp32/partitions.bin
+
+        env:
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}

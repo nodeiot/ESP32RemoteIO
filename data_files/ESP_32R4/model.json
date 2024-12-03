@@ -1,0 +1,40 @@
+{
+    "model": "ESP_32R4",
+    "gpio": [
+                {
+                    "ref": "rel1",
+                    "pin": "25",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel2",
+                    "pin": "26",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel3",
+                    "pin": "32",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "rel4",
+                    "pin": "33",
+                    "type": "OUTPUT"
+                },
+                {
+                    "ref": "disconnect",
+                    "pin": "",
+                    "type": "virtual_v"
+                },
+                {
+                    "ref": "restart",
+                    "pin": "",
+                    "type": "virtual_v"
+                },
+                {
+                    "ref": "reset",
+                    "pin": "",
+                    "type": "virtual_v"
+                }
+    ]
+}
