@@ -165,7 +165,7 @@ const char page_setup[] PROGMEM = R"rawliteral(
                     <label for="companyName">Nome da empresa:</label>
                     <input type="text" id="companyName" name="companyName" required>
                     <label for="deviceId">Nome do dispositivo:</label>
-                    <input type="text" id="deviceId" name="deviceId" required>
+                    <input type="text" id="deviceId" name="deviceId">
 
                     <div class="SubmitButton">
                         <input type="submit" id="submitButton" value="Salvar">
