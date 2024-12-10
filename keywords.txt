@@ -1,0 +1,77 @@
+#######################################
+# Syntax Coloring Map For RemoteIO
+#######################################
+
+#######################################
+# Class and Datatypes (KEYWORD1)
+#######################################
+
+RemoteIO    KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin KEYWORD2
+loop KEYWORD2
+notFound KEYWORD2
+localHttpUpdateMsg KEYWORD2
+tryAuthenticate KEYWORD2
+fetchLatestData KEYWORD2
+browseService KEYWORD2
+switchState KEYWORD2
+stateLogic KEYWORD2
+socketIOConnect KEYWORD2
+nodeIotConnection KEYWORD2
+socketIOEvent KEYWORD2
+updatePinOutput KEYWORD2
+updatePinInput KEYWORD2
+extractIPAddress KEYWORD2
+startAccessPoint KEYWORD2
+checkResetting KEYWORD2
+espPOST KEYWORD2
+
+#######################################
+# Class variables (KEYWORD3)
+#######################################
+
+setIO KEYWORD3
+deviceConfig KEYWORD3
+socketIO KEYWORD3
+server KEYWORD3
+Connected KEYWORD3
+Socketed KEYWORD3
+messageTimestamp KEYWORD3
+_ssid KEYWORD3
+_password KEYWORD3
+_companyName KEYWORD3
+_deviceId KEYWORD3
+_appHost KEYWORD3
+_model KEYWORD3
+_appPort KEYWORD3
+anchor_route KEYWORD3
+anchored_route KEYWORD3
+appBaseUrl KEYWORD3
+appVerifyUrl KEYWORD3
+appLastDataUrl KEYWORD3
+appPostData KEYWORD3
+appSideDoor KEYWORD3
+appPostDataFromAnchored KEYWORD3
+start_debounce_time KEYWORD3
+start_browsing_time KEYWORD3
+start_reconnect_time KEYWORD3
+start_config_time KEYWORD3
+start_reset_time KEYWORD3
+state KEYWORD3
+token KEYWORD3
+anchor_IP KEYWORD3
+anchored_IP KEYWORD3
+send_to_niot_buffer KEYWORD3
+send_to_anchor_buffer KEYWORD3
+send_to_anchored_buffer KEYWORD3
+connection_state KEYWORD3
+next_state KEYWORD3
+anchored KEYWORD3
+anchoring KEYWORD3
+lastIP_index KEYWORD3
+

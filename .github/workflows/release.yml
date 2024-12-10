@@ -1,0 +1,30 @@
+name: Release RemoteIO
+
+on:
+  push:
+    tags:
+      - v*.*.*
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        
+      # - name: Pack files  
+      #   run: |
+      #     tar -czf remoteIO.tar.gz ./
+      #     ls -lh
+
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        with: 
+          tag_name: ${{ github.ref }}
+          release_name: RemoteIO ${{ github.ref }}
+          draft: false
+          prerelease: false

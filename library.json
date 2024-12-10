@@ -1,0 +1,39 @@
+{
+    "name": "ESP32RemoteIO",
+    "version": "1.4.0",
+    "description": "Basic library for communication with cloud based IoT platform NodeIoT, sensors usage and product development. Communicates with NodeIoT to provide real time sensor readings and command actions through web dashboards.",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/nodeiot/ESP32RemoteIO"
+    },
+    "keywords": ["remoteio", "remote", "iot", "cloud", "communication"],
+    "authors": {
+        "name": "gkraemer-niot",
+        "email": "guilherme.kraemer@nodeiot.com.br",
+        "maintainer": true
+    },
+    "frameworks": "arduino",
+    "platforms": "espressif32",
+    "dependencies": [
+        {
+            "owner": "bblanchon",
+            "name": "ArduinoJson",
+            "version": "7.1.0"
+        },
+        {
+            "owner": "Links2004",
+            "name": "WebSockets",
+            "version": "2.4.2"
+        },
+        {
+            "owner": "mathieucarbou",
+            "name": "ESP Async WebServer",
+            "version": "3.3.22"
+        }
+    ],
+    "export": {
+        "exclude": [
+            "src/main.cpp"
+        ]
+    }
+}

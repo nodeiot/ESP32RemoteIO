@@ -1,0 +1,20 @@
+{
+    "model": "ESP_32",
+    "gpio": [
+                {
+                    "ref": "disconnect",
+                    "pin": "",
+                    "type": "virtual_v"
+                },
+                {
+                    "ref": "restart",
+                    "pin": "",
+                    "type": "virtual_v"
+                },
+                {
+                    "ref": "reset",
+                    "pin": "",
+                    "type": "virtual_v"
+                }
+    ]
+}
