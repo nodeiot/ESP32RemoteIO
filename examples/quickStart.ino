@@ -9,14 +9,15 @@
 ######################################################################
 */
 
-/* Veja a documentação xxx para informações mais detalhadas sobre esse exemplo */
-
 #include <ESP32RemoteIO.h>
 
 RemoteIO device1;
 
-// Define your own callback function to handle communication events with NodeIoT
-// Example:
+/* 
+  Define your own callback function to handle communication events with NodeIoT
+  Example:
+*/
+
 void myCallback(String ref, String value)
 {
 /* 
